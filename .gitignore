@@ -1,0 +1,14 @@
+node_modules/
+dist/
+
+# Secrets. Only the example file is committed.
+.env
+.env.*
+!.env.example
+
+# SerpApi responses and audit snapshots stay on your machine.
+data/*
+!data/.gitkeep
+
+.DS_Store
+*.log
