@@ -33,7 +33,8 @@ export const EXTRA_UNCHECKED_CANDIDATES = 6;
  */
 export function estimateSearches(options: AuditOptions, videoCount: number | null): number {
   const videoPages = videoCount ? Math.min(options.maxPagesPerTab, Math.ceil(videoCount / 30)) : options.maxPagesPerTab;
-  const tabPages = options.tabs.reduce((sum, tab) => sum + (tab === "video" ? videoPages : Math.min(3, options.maxPagesPerTab)), 0);
+  // Page 1 of the videos tab comes free with the channel details.
+  const tabPages = options.tabs.reduce((sum, tab) => sum + (tab === "video" ? videoPages - 1 : Math.min(3, options.maxPagesPerTab)), 0);
   const candidateLookups = options.demandChecks + EXTRA_UNCHECKED_CANDIDATES;
   return 1 + tabPages + options.enrich + candidateLookups + options.demandChecks;
 }

@@ -30,12 +30,14 @@ npm run audit -- serpapi --estimate     # print the search cost and stop
 
 `npm run build && npm start` serves the built dashboard and the API together on :8787.
 
+Behind a proxy? Node 22 ignores `HTTPS_PROXY` unless you also set `NODE_USE_ENV_PROXY=1`.
+
 ## Where SerpApi comes in
 
 | Step | Engine | Searches |
 |---|---|---|
-| Channel details: subscribers, total views, join date | `youtube_channel` with `about=true` | 1 |
-| Every upload, paged with `next_page_token` | `youtube_channel` with `tab=videos`, `shorts`, `streams` | 1 per page |
+| Channel details: subscribers, total views, join date, and the first 30 videos | `youtube_channel` with `about=true` | 1 |
+| Every other upload, following `serpapi_pagination.next` | `youtube_channel`, then `tab=shorts` and `tab=streams` | 1 per page |
 | Exact publish date, likes, comments, chapters, description | `youtube_video` | 1 per video, you choose how many |
 | Topic demand: what ranks for a weak video's subject, and how many views it has | `youtube` (search) | 1 per candidate |
 | The first minute of a video, word for word | `youtube_video_transcript` | 1, when you click |
@@ -61,11 +63,20 @@ Topics come from the titles themselves, not a hand-written list: recurring phras
 - The API binds to `127.0.0.1` only, because every request it makes spends your searches.
 - The key is stripped from anything written to `data/cache/`, from error messages, and from the Account API response (which echoes it back, along with your email, which is dropped too).
 
+## Two things this hit in the YouTube Channel API
+
+Both showed up on the first real run against `@serpapi` (October 2026), and the pipeline works around them:
+
+1. `channel_id=UCUgIHlYBOD3yA3yDIRhg_mg&tab=videos` answers `"videos_results_state": "This channel doesn't have any videos"`, with or without `sort`, although the channel has 121. The same id works for `tab=shorts`, and the handle (`channel_id=serpapi`) works for videos. The pipeline sends whatever identifier the first call succeeded with.
+2. After an `about=true` page, `serpapi_pagination.next` keeps `about=true` next to the `next_page_token`, and following it returns HTTP 400: "`about` and `next_page_token` parameters can't be used together." The pipeline follows the `next` link without `about`.
+
 ## Limits
 
 - Public data only. Watch time, retention, click-through rate and traffic sources live in YouTube Studio, and the brief lists them as metrics to pull from there.
 - Videos you don't look up individually get their age from YouTube's relative label ("2 years ago"), which is coarse. The scatter plot draws those as hollow dots, and the table marks them.
 - Views are a snapshot taken at audit time.
+- Comment counts aren't part of the `youtube_video` response (they come from a separate comments request), so the audit leaves them out rather than spending a search per video.
+- A topic search measures what ranks for a query, not whether those videos answer the same need. "scrape youtube shorts" returns Shorts growth tutorials with 300K views, which says nothing about demand for scraping. Open the top results before trusting the number.
 - Topic and title results are correlations within one channel's catalogue, not causes.
 - A topic search reflects one moment, one country and one language (`gl`, `hl`).
 

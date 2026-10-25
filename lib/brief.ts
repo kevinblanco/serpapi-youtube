@@ -42,9 +42,12 @@ export function draftBrief(audit: Audit, candidate: RemakeCandidate, opening?: O
     `| Expected for its age on this channel | ${formatFull(video.expectedViews)} |`,
     `| Performance | ${formatMultiple(video.performance)} expected |`,
     `| Likes per 1,000 views | ${per1k(video.likes, video.views)} (channel median ${summary.likesPer1kViews?.toFixed(1) ?? "–"}) |`,
-    `| Comments per 1,000 views | ${per1k(video.comments, video.views)} (channel median ${summary.commentsPer1kViews?.toFixed(1) ?? "–"}) |`,
     `| Chapters | ${video.enriched ? video.chapters.length : "not checked"} |`,
   );
+  // youtube_video only returns comment counts on its follow-up comments request, so this row is often empty.
+  if (video.comments !== null) {
+    push(`| Comments per 1,000 views | ${per1k(video.comments, video.views)} (channel median ${summary.commentsPer1kViews?.toFixed(1) ?? "–"}) |`);
+  }
   if (demand) {
     push(
       `| YouTube search "${cell(demand.query)}" | ${demand.ownRank ? `ranks #${demand.ownRank}` : `not in the first ${demand.topResults.length} results`} |`,

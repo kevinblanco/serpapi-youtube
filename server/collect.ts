@@ -22,14 +22,22 @@ import {
 import { analyze } from "../lib/analyze";
 import { buildCandidate, demandFromSearch, rankCandidates, searchQueryFor, shortlist } from "../lib/candidates";
 import { DEFAULT_OPTIONS, EXTRA_UNCHECKED_CANDIDATES, normalizeChannel } from "../lib/options";
-import { isEmptyResult, type SearchClient } from "./serpapi";
+import { isEmptyResult, type Params, type SearchClient } from "./serpapi";
 
 const TAB_PARAM: Record<VideoFormat, string> = { video: "videos", short: "shorts", stream: "streams" };
 const CONCURRENCY = 4;
 
 type Emit = (event: ProgressEvent) => void;
 
-export async function fetchChannelInfo(client: SearchClient, options: AuditOptions): Promise<ChannelInfo> {
+/**
+ * One search for the channel's details. With about=true the response also
+ * carries the first page of the videos tab (latest first) and its pagination,
+ * so it doubles as page 1 of that tab.
+ */
+export async function fetchChannelInfo(
+  client: SearchClient,
+  options: AuditOptions,
+): Promise<{ channel: ChannelInfo; firstVideosPage: YouTubeChannelResponse }> {
   const channel = normalizeChannel(options.channel);
   const res = await client.search<YouTubeChannelResponse>({
     engine: "youtube_channel",
@@ -40,7 +48,7 @@ export async function fetchChannelInfo(client: SearchClient, options: AuditOptio
   });
   if (res.error) throw new Error(`Couldn't read channel ${channel}: ${res.error}`);
   const info = res.channel_results ?? {};
-  return {
+  const channelInfo: ChannelInfo = {
     query: channel,
     title: info.title ?? channel,
     handle: info.handle ?? (channel.startsWith("UC") ? null : `@${channel}`),
@@ -54,6 +62,21 @@ export async function fetchChannelInfo(client: SearchClient, options: AuditOptio
     joinedDate: info.joined_date ?? null,
     country: info.country ?? null,
   };
+  return { channel: channelInfo, firstVideosPage: res };
+}
+
+/**
+ * The parameters of SerpApi's own serpapi_pagination.next link, minus `about`:
+ * the link after an about=true page repeats it, but the API answers 400 when
+ * `about` and `next_page_token` arrive together.
+ */
+export function nextPageParams(res: YouTubeChannelResponse): Params | null {
+  const next = res.serpapi_pagination?.next;
+  if (!next) return null;
+  const params: Params = Object.fromEntries(new URL(next).searchParams);
+  delete params.api_key;
+  delete params.about;
+  return params.next_page_token ? params : null;
 }
 
 function toVideo(item: ChannelVideo | ChannelShort, format: VideoFormat, snapshot: Date): Video | null {
@@ -82,6 +105,10 @@ function toVideo(item: ChannelVideo | ChannelShort, format: VideoFormat, snapsho
   };
 }
 
+// Every tab is requested with the identifier the about call succeeded with.
+// Tested Oct 2026: tab=videos with a UC... channel id answered "This channel
+// doesn't have any videos" for a channel with 121 of them, with or without
+// sort, while the handle worked. No sort parameter: latest is the default.
 async function fetchTab(
   client: SearchClient,
   channel: ChannelInfo,
@@ -89,34 +116,38 @@ async function fetchTab(
   options: AuditOptions,
   snapshot: Date,
   emit: Emit,
+  firstPage?: YouTubeChannelResponse,
 ): Promise<Video[]> {
   const videos: Video[] = [];
-  let token: string | undefined;
-  for (let page = 1; page <= options.maxPagesPerTab; page++) {
-    const res = await client.search<YouTubeChannelResponse>({
-      engine: "youtube_channel",
-      channel_id: channel.channelId ?? channel.query,
-      tab: TAB_PARAM[format],
-      ...(format !== "short" && !token ? { sort: "latest" } : {}),
-      next_page_token: token,
-      gl: options.gl,
-      hl: options.hl,
-    });
+  let params: Params | null = {
+    engine: "youtube_channel",
+    channel_id: channel.query,
+    tab: TAB_PARAM[format],
+    gl: options.gl,
+    hl: options.hl,
+  };
+  for (let page = 1; page <= options.maxPagesPerTab && params; page++) {
+    const res: YouTubeChannelResponse =
+      page === 1 && firstPage ? firstPage : await client.search<YouTubeChannelResponse>(params);
     if (res.error) {
-      if (isEmptyResult(res.error)) break;
-      emit({ type: "warning", message: `${TAB_PARAM[format]} tab, page ${page}: ${res.error}` });
+      if (!isEmptyResult(res.error)) emit({ type: "warning", message: `${TAB_PARAM[format]} tab, page ${page}: ${res.error}` });
       break;
     }
     const items =
       format === "video" ? res.videos_results : format === "short" ? res.shorts_results : res.streams_results;
-    for (const item of items ?? []) {
+    if (!items?.length) {
+      // SerpApi explains an empty tab in search_information, e.g. "This channel doesn't have any streams".
+      const state = Object.values(res.search_information ?? {}).find((v) => typeof v === "string");
+      if (page === 1 && state) emit({ type: "step", message: `${TAB_PARAM[format]} tab: ${state}` });
+      break;
+    }
+    for (const item of items) {
       if ("upcoming" in item && item.upcoming) continue;
       const video = toVideo(item, format, snapshot);
       if (video) videos.push(video);
     }
     emit({ type: "progress", label: `${TAB_PARAM[format]} tab`, done: videos.length, total: 0 });
-    token = res.serpapi_pagination?.next_page_token;
-    if (!token || !items?.length) break;
+    params = nextPageParams(res);
   }
   return videos;
 }
@@ -165,18 +196,29 @@ async function enrichMany(
   });
 }
 
-export async function runAudit(input: Partial<AuditOptions>, client: SearchClient, emit: Emit): Promise<Audit> {
+/**
+ * Runs a full audit. Pass the channel's previous audit to keep the topic
+ * queries someone edited in the dashboard; their results are usually cached.
+ */
+export async function runAudit(
+  input: Partial<AuditOptions>,
+  client: SearchClient,
+  emit: Emit,
+  previous: Audit | null = null,
+): Promise<Audit> {
   const options: AuditOptions = { ...DEFAULT_OPTIONS, ...input };
+  const remembered = new Map(previous?.candidates.filter((c) => c.demand).map((c) => [c.videoId, c.query]) ?? []);
   const snapshot = new Date();
   const notes: string[] = [];
 
   emit({ type: "step", message: `Reading channel ${normalizeChannel(options.channel)}` });
-  const channel = await fetchChannelInfo(client, options);
+  const { channel, firstVideosPage } = await fetchChannelInfo(client, options);
 
   const byId = new Map<string, Video>();
   for (const format of options.tabs) {
     emit({ type: "step", message: `Listing the ${TAB_PARAM[format]} tab` });
-    for (const video of await fetchTab(client, channel, format, options, snapshot, emit)) {
+    const firstPage = format === "video" ? firstVideosPage : undefined;
+    for (const video of await fetchTab(client, channel, format, options, snapshot, emit, firstPage)) {
       if (!byId.has(video.id)) byId.set(video.id, video);
     }
   }
@@ -204,21 +246,21 @@ export async function runAudit(input: Partial<AuditOptions>, client: SearchClien
 
   const result = analyze(videos, channel, snapshot);
   const weakest = shortlist(result.videos, shortlistSize);
+  // The weakest few get a topic search, plus any candidate whose query was edited before.
+  const toSearch = weakest.filter((v, i) => i < options.demandChecks || remembered.has(v.id));
+  if (toSearch.length) emit({ type: "step", message: `Searching YouTube for ${toSearch.length} candidate topics` });
   const candidates = [];
-  if (options.demandChecks > 0 && weakest.length) {
-    emit({ type: "step", message: `Searching YouTube for ${Math.min(options.demandChecks, weakest.length)} candidate topics` });
-  }
-  for (const [i, video] of weakest.entries()) {
-    if (i >= options.demandChecks) {
+  for (const video of weakest) {
+    if (!toSearch.includes(video)) {
       candidates.push(buildCandidate(video, channel, null));
       continue;
     }
-    const query = searchQueryFor(video.title, channel);
+    const query = remembered.get(video.id) ?? searchQueryFor(video.title, channel);
     const res = await client.search<YouTubeSearchResponse>({ engine: "youtube", search_query: query, gl: options.gl, hl: options.hl });
     if (res.error && !isEmptyResult(res.error)) emit({ type: "warning", message: `Search "${query}": ${res.error}` });
     const demand = res.error && !isEmptyResult(res.error) ? null : demandFromSearch(video, query, res, channel, snapshot.toISOString());
     candidates.push(buildCandidate(video, channel, demand, query));
-    emit({ type: "progress", label: "topic searches", done: i + 1, total: Math.min(options.demandChecks, weakest.length) });
+    emit({ type: "progress", label: "topic searches", done: candidates.filter((c) => c.demand).length, total: toSearch.length });
   }
 
   const relative = result.videos.filter((v) => v.format !== "short" && v.datePrecision === "relative").length;

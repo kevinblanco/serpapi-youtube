@@ -77,8 +77,12 @@ export function VideoPanel({ audit, videoId, opening, onOpening, onClose }: Prop
           <dd>{formatDuration(video.durationSec)}</dd>
           <dt>Likes</dt>
           <dd>{video.enriched ? `${formatFull(video.likes)} (${per1k(video.likes)} per 1,000 views)` : "Not looked up"}</dd>
-          <dt>Comments</dt>
-          <dd>{video.enriched ? `${formatFull(video.comments)} (${per1k(video.comments)} per 1,000 views)` : "Not looked up"}</dd>
+          {video.comments !== null && (
+            <>
+              <dt>Comments</dt>
+              <dd>{`${formatFull(video.comments)} (${per1k(video.comments)} per 1,000 views)`}</dd>
+            </>
+          )}
           <dt>Description</dt>
           <dd>
             {video.enriched

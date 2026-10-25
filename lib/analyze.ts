@@ -132,10 +132,27 @@ export function brandStopwords(channel: ChannelInfo): Set<string> {
   return new Set(words);
 }
 
+/**
+ * How many days back upload dates are good to the month. Looked-up videos have
+ * exact dates and YouTube labels anything under a year "n months ago", but
+ * "1 year ago" can mean 12 to 23 months. The chart stops where the first such
+ * label could start: n whole years back.
+ */
+export function monthPrecisionHorizon(videos: readonly Video[]): number {
+  const yearLabels = videos.filter(
+    (v) => v.format !== "short" && v.datePrecision === "relative" && /year/i.test(v.publishedLabel ?? "") && v.ageDays !== null,
+  );
+  if (yearLabels.length === 0) return Infinity;
+  return Math.min(...yearLabels.map((v) => Math.floor(v.ageDays! / 365.25) * 365.25));
+}
+
 export function monthBuckets(videos: readonly ScoredVideo[], snapshot: Date, months = 18): MonthBucket[] {
+  const horizon = monthPrecisionHorizon(videos);
+  const earliest = snapshot.getTime() - horizon * 86_400_000;
   const buckets: MonthBucket[] = [];
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(Date.UTC(snapshot.getUTCFullYear(), snapshot.getUTCMonth() - i, 1));
+    if (d.getTime() < earliest) continue;
     const month = d.toISOString().slice(0, 7);
     const members = videos.filter((v) => v.format !== "short" && v.publishedAt?.startsWith(month));
     buckets.push({

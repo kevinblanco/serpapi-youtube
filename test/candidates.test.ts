@@ -1,7 +1,7 @@
 // Synthetic search results only: shaped like SerpApi's youtube engine response.
 
 import { describe, expect, it } from "vitest";
-import { demandFromSearch, isOwnResult, scoreCandidate, searchQueryFor } from "../lib/candidates";
+import { demandFromSearch, eligibleForRemake, isOwnResult, scoreCandidate, searchQueryFor } from "../lib/candidates";
 import type { ChannelInfo, ScoredVideo } from "../lib/types";
 
 const channel: ChannelInfo = {
@@ -48,6 +48,10 @@ describe("searchQueryFor", () => {
     ["SerpApi's Google Search API in Python (2024)", "google search api in python"],
     ["Scrape Google Jobs | SerpApi", "scrape google jobs"],
     ["Using SerpApi API and n8n: build an SEO agent!", "and n8n build an seo agent"],
+    ["CSS vs XPath for web scraping | #SerpApiPodcast", "css vs xpath for web scraping"],
+    ["Work-Life Balance w/ Dmytro | #SerpApiPodcast Ep.10", "work-life balance w/ dmytro"],
+    ["Scrape Amazon Products Data using Python (Tutorial 2026)", "scrape amazon products data using python"],
+    ["Scrape Bing Search with Python and a Simple API", "scrape bing search with python and api"],
   ])("%s", (title, expected) => {
     expect(searchQueryFor(title, channel)).toBe(expected);
   });
@@ -78,6 +82,16 @@ describe("demandFromSearch", () => {
   });
 });
 
+describe("eligibleForRemake", () => {
+  it("keeps tutorials between a minute and 30 minutes, 60 days to 3 years old", () => {
+    expect(eligibleForRemake(weak)).toBe(true);
+    expect(eligibleForRemake({ ...weak, durationSec: 4500 })).toBe(false); // a podcast episode
+    expect(eligibleForRemake({ ...weak, durationSec: 45 })).toBe(false);
+    expect(eligibleForRemake({ ...weak, ageDays: 1500 })).toBe(false);
+    expect(eligibleForRemake({ ...weak, ageDays: 30 })).toBe(false);
+  });
+});
+
 describe("scoreCandidate", () => {
   it("adds the demand gap to the underperformance, in doublings", () => {
     expect(scoreCandidate(weak, null)).toBeCloseTo(2, 5); // 0.25x = two doublings short
@@ -92,5 +106,6 @@ describe("scoreCandidate", () => {
     };
     expect(scoreCandidate(weak, demand)).toBeCloseTo(6, 5);
     expect(scoreCandidate(weak, { ...demand, ownRank: 1 })).toBeCloseTo(5, 5);
+    expect(scoreCandidate(weak, { ...demand, competitorCount: 3 })).toBeCloseTo(2, 5); // too few to count
   });
 });

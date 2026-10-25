@@ -24,23 +24,23 @@ describe("runAudit on a synthetic channel", async () => {
   const events: ProgressEvent[] = [];
   const audit = await runAudit({ channel: "testchannel", enrich: 30, demandChecks: 3 }, client, (e) => events.push(e));
 
-  it("sends the handle without its @ and pages with the channel id", () => {
+  it("sends the handle without its @", () => {
     expect(client.calls[0]).toMatchObject({ engine: "youtube_channel", channel_id: "testchannel", about: true });
-    expect(client.calls[1]).toMatchObject({ tab: "videos", channel_id: "UCtesttesttesttesttest00" });
   });
 
-  it("pages through every tab and keeps formats apart", () => {
+  it("uses the about response as page 1 and follows SerpApi's next links after it", () => {
     expect(audit.summary.longFormCount).toBe(72);
+    const videoPages = client.calls.filter((c) => c.engine === "youtube_channel" && (c.about || (c.next_page_token && !c.tab)));
+    expect(videoPages.map((p) => p.next_page_token)).toEqual([undefined, "1", "2"]);
+    expect(videoPages.every((p) => p.tab === undefined)).toBe(true);
+    expect(videoPages.slice(1).every((p) => !("about" in p))).toBe(true);
+    expect(client.calls.some((c) => "sort" in c)).toBe(false);
+  });
+
+  it("keeps formats apart and explains an empty tab", () => {
     expect(audit.summary.shortsCount).toBe(8);
     expect(audit.summary.streamsCount).toBe(0);
-    const pages = client.calls.filter((c) => c.engine === "youtube_channel" && c.tab === "videos");
-    expect(pages.map((p) => p.next_page_token)).toEqual([undefined, "1", "2"]);
-  });
-
-  it("only sorts the first page, since the token carries the sort after that", () => {
-    const pages = client.calls.filter((c) => c.engine === "youtube_channel" && c.tab === "videos");
-    expect(pages[0]!.sort).toBe("latest");
-    expect(pages[1]!.sort).toBeUndefined();
+    expect(events).toContainEqual({ type: "step", message: "streams tab: This channel doesn't have any streams" });
   });
 
   it("swaps relative dates for exact ones on looked-up videos", () => {
@@ -86,6 +86,13 @@ describe("runAudit on a synthetic channel", async () => {
     const { audit: next, candidate } = await recheckDemand(client, audit, target.videoId, "google maps reviews");
     expect(candidate.demand?.query).toBe("google maps reviews");
     expect(next.candidates.find((c) => c.videoId === target.videoId)?.demand).not.toBeNull();
+  });
+
+  it("keeps a query edited in the previous audit", async () => {
+    const target = audit.candidates.at(-1)!;
+    const { audit: edited } = await recheckDemand(client, audit, target.videoId, "my edited query");
+    const rerun = await runAudit({ channel: "testchannel", enrich: 30, demandChecks: 3 }, new SyntheticClient(now), () => {}, edited);
+    expect(rerun.candidates.find((c) => c.videoId === target.videoId)?.demand?.query).toBe("my edited query");
   });
 
   it("reads the opening of a transcript", async () => {

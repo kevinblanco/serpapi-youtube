@@ -182,7 +182,10 @@ export function App() {
                 <h2>
                   Upload <span className="serif">rhythm</span>
                 </h2>
-                <p>Long-form uploads per month over the last 18 months. Hover a month for its median performance.</p>
+                <p>
+                  Long-form uploads per month{audit.months[0] ? ` since ${formatMonthYear(audit.months[0].month)}` : ""}, as far
+                  back as upload dates are known to the month. Hover a month for its median performance.
+                </p>
               </div>
             </div>
             <div className="card">
@@ -287,6 +290,10 @@ export function App() {
       </footer>
     </div>
   );
+}
+
+function formatMonthYear(month: string): string {
+  return new Date(`${month}-01T00:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 /** views ∝ age^b, so doubling a video's age multiplies its expected views by 2^b. */

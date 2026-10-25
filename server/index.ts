@@ -59,7 +59,8 @@ app.post("/api/audits", async (c) => {
     async start(controller) {
       const send = (event: ProgressEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       try {
-        const audit = await runAudit(options, new SerpApiClient({ refresh: options.refresh }), send);
+        const previous = await loadAudit(options.channel);
+        const audit = await runAudit(options, new SerpApiClient({ refresh: options.refresh }), send, previous);
         await saveAudit(audit);
         send({ type: "done", audit });
       } catch (error) {

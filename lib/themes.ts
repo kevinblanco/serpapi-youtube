@@ -33,6 +33,9 @@ const NORMALIZE: Record<string, string> = {
 
 const MAX_GRAM = 3;
 
+// Too generic to be a topic, alone or together ("search result"), fine next to a real word ("Bing search").
+const NOT_ALONE = new Set(["search", "result", "web", "scrape", "page", "pages", "tool", "tools", "app", "apps", "engine"]);
+
 /**
  * Splits a title into runs of meaningful words. A stopword, number or
  * punctuation mark ends a run, so "Google Search results in Python" gives
@@ -42,6 +45,7 @@ export function phraseRuns(title: string, extraStopwords: ReadonlySet<string> = 
   const runs: string[][] = [[]];
   const words = title
     .toLowerCase()
+    .replace(/\bno[\s-]?code\b/g, "nocode")
     .replace(/https?:\/\/\S+/g, " | ")
     .replace(/[^\p{L}\p{N}.+#\s-]/gu, " | ")
     .split(/[\s-]+/)
@@ -94,7 +98,7 @@ export function findThemes(
 
   const background = videos.length >= 20 ? videos.length * 0.5 : Infinity;
   const frequent = [...docs.entries()]
-    .filter(([, ids]) => ids.size >= minCount && ids.size <= background)
+    .filter(([gram, ids]) => ids.size >= minCount && ids.size <= background && !gram.split(" ").every((w) => NOT_ALONE.has(w)))
     .sort((a, b) => b[0].split(" ").length - a[0].split(" ").length);
 
   const kept: [string, Set<string>][] = [];
@@ -106,7 +110,7 @@ export function findThemes(
   return kept
     .sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))
     .slice(0, limit)
-    .map(([gram, ids]) => ({ key: gram, label: labelFor(gram), videoIds: [...ids] }));
+    .map(([gram, ids]) => ({ key: gram, label: labelFor(gram, videos), videoIds: [...ids] }));
 }
 
 const DISPLAY: Record<string, string> = {
@@ -129,16 +133,29 @@ const DISPLAY: Record<string, string> = {
   linkedin: "LinkedIn",
   ebay: "eBay",
   google: "Google",
+  nocode: "No-code",
+  excel: "Excel",
+  sheets: "Sheets",
   bing: "Bing",
   amazon: "Amazon",
   python: "Python",
   ruby: "Ruby",
 };
 
-export function labelFor(gram: string): string {
+/** Display form of a phrase. Hashtags keep the casing a title used ("#SerpApiPodcast"). */
+export function labelFor(gram: string, videos: readonly { title: string }[] = []): string {
   const label = gram
     .split(" ")
-    .map((word) => DISPLAY[word] ?? word)
+    .map((word) => {
+      if (word.startsWith("#")) {
+        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        for (const v of videos) {
+          const found = v.title.match(new RegExp(escaped, "i"));
+          if (found) return found[0];
+        }
+      }
+      return DISPLAY[word] ?? word;
+    })
     .join(" ");
   return label.charAt(0).toUpperCase() + label.slice(1);
 }

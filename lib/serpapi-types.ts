@@ -76,6 +76,7 @@ export interface YouTubeChannelResponse {
   videos_results?: ChannelVideo[];
   shorts_results?: ChannelShort[];
   streams_results?: ChannelVideo[];
+  search_information?: Record<string, string>;
   serpapi_pagination?: Pagination;
   error?: string;
 }

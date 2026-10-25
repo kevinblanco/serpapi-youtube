@@ -85,9 +85,11 @@ export function StatTiles({ audit }: { audit: Audit }) {
       label: "Likes per 1,000 views",
       value: s.likesPer1kViews !== null ? s.likesPer1kViews.toFixed(1) : "–",
       hint:
-        s.commentsPer1kViews !== null
-          ? `${s.commentsPer1kViews.toFixed(1)} comments per 1,000 · ${s.enrichedCount} videos looked up`
-          : "Needs video lookups",
+        s.enrichedCount === 0
+          ? "Needs video lookups"
+          : s.commentsPer1kViews !== null
+            ? `${s.commentsPer1kViews.toFixed(1)} comments per 1,000 · ${s.enrichedCount} videos looked up`
+            : `Median of ${s.enrichedCount} videos looked up`,
     },
     {
       label: "Shorts",

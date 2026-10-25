@@ -7,10 +7,21 @@ import { median } from "./stats";
 import { parseCount } from "./parse";
 import { formatAge, formatFull, formatMultiple } from "./format";
 
-/** A remake target needs time to have proven itself. */
+/** A remake target needs time to have proven itself... */
 export const MIN_CANDIDATE_AGE_DAYS = 60;
+/** ...but past three years the product and the channel have usually moved on. */
+export const MAX_CANDIDATE_AGE_DAYS = 1096;
+/** Tutorial length. Clips under a minute and talks over 30 minutes aren't remakes. */
+export const MIN_CANDIDATE_SECONDS = 60;
+export const MAX_CANDIDATE_SECONDS = 1800;
 /** How many search results count as "the competition". */
 export const COMPETITOR_WINDOW = 10;
+/** Fewer competing videos than this says more about the query than about demand. */
+export const MIN_COMPETITORS = 5;
+
+// Words that make a title clickable but nobody types into a search box.
+const FILLER =
+  /\b(simple|easy|fast|quick(ly)?|new|free|tutorial|step by step|in (a few )?minutes|no code required|for beginners|explained)\b/gi;
 
 /**
  * Turns a title into the search a viewer would type: drops the channel's own
@@ -27,8 +38,12 @@ export function searchQueryFor(title: string, channel: ChannelInfo): string {
     query = query.replace(new RegExp(`\\s(?:with|using|via|by|from|and|on|in|\\+|&)?\\s*${brand}\\b(?:\\s+api)?`, "gi"), " ");
   }
   return query
-    .replace(/[|:–—!?"“”()[\]{}]/g, " ")
-    .replace(/\s-\s/g, " ")
+    .replace(/#[\p{L}\p{N}_]+/gu, " ") // series hashtags
+    .replace(/\b(episode|ep\.?)\s*#?\d+\b/gi, " ")
+    .replace(FILLER, " ")
+    .replace(/\b(a|an)\s+(?=api\b)/gi, "") // "a simple API" minus "simple"
+    .replace(/[|:–—!?"“”()[\]{},]/g, " ")
+    .replace(/\s[-+&]\s/g, " ")
     .replace(/\b(19|20)\d\d\b/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -36,12 +51,15 @@ export function searchQueryFor(title: string, channel: ChannelInfo): string {
 }
 
 export function eligibleForRemake(video: ScoredVideo): boolean {
+  const length = video.durationSec;
   return (
     video.format === "video" &&
     video.performance !== null &&
     !video.tooNew &&
     video.ageDays !== null &&
-    video.ageDays >= MIN_CANDIDATE_AGE_DAYS
+    video.ageDays >= MIN_CANDIDATE_AGE_DAYS &&
+    video.ageDays <= MAX_CANDIDATE_AGE_DAYS &&
+    (length === null || (length >= MIN_CANDIDATE_SECONDS && length <= MAX_CANDIDATE_SECONDS))
   );
 }
 
@@ -105,7 +123,7 @@ const log2 = (x: number) => Math.log(x) / Math.LN2;
  */
 export function scoreCandidate(video: ScoredVideo, demand: DemandCheck | null): number {
   const under = Math.max(0, -log2(video.performance ?? 1));
-  if (!demand || demand.competitorMedianViews === null) return under;
+  if (!demand || demand.competitorMedianViews === null || demand.competitorCount < MIN_COMPETITORS) return under;
   const gap = Math.min(6, Math.max(0, log2(demand.competitorMedianViews / Math.max(video.views ?? 0, 1))));
   const rankPenalty = demand.ownRank !== null && demand.ownRank <= 3 ? 1 : 0;
   return under + gap - rankPenalty;
@@ -116,7 +134,11 @@ export function reasonsFor(video: ScoredVideo, demand: DemandCheck | null): stri
   if (video.performance !== null) {
     reasons.push(`Got ${formatMultiple(video.performance)} the views this channel usually gets at ${formatAge(video.ageDays)}.`);
   }
-  if (demand && demand.competitorMedianViews !== null) {
+  if (demand && demand.competitorCount < MIN_COMPETITORS) {
+    reasons.push(
+      `Only ${demand.competitorCount} other videos came up for "${demand.query}", too few to judge demand. Try a broader query.`,
+    );
+  } else if (demand && demand.competitorMedianViews !== null) {
     reasons.push(
       `The top ${demand.competitorCount} other videos for "${demand.query}" have a median of ${formatFull(demand.competitorMedianViews)} views.`,
     );

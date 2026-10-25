@@ -5,7 +5,7 @@ import { parseArgs } from "node:util";
 import "../server/env";
 import { SerpApiClient } from "../server/serpapi";
 import { runAudit } from "../server/collect";
-import { saveAudit } from "../server/store";
+import { loadAudit, saveAudit } from "../server/store";
 import { DEFAULT_OPTIONS, estimateSearches, normalizeChannel } from "../lib/options";
 import { formatCount, formatMultiple } from "../lib/format";
 import type { AuditOptions } from "../lib/types";
@@ -40,11 +40,17 @@ console.log(
 console.log(`This audit will spend about ${estimateSearches(options, null)} searches (less if cached).`);
 if (values.estimate) process.exit(0);
 
-const audit = await runAudit(options, client, (event) => {
-  if (event.type === "step") console.log(`→ ${event.message}`);
-  if (event.type === "warning") console.warn(`  ! ${event.message}`);
-  if (event.type === "progress" && event.total && event.done === event.total) console.log(`  ${event.label}: ${event.done}`);
-});
+const previous = await loadAudit(options.channel);
+const audit = await runAudit(
+  options,
+  client,
+  (event) => {
+    if (event.type === "step") console.log(`→ ${event.message}`);
+    if (event.type === "warning") console.warn(`  ! ${event.message}`);
+    if (event.type === "progress" && event.total && event.done === event.total) console.log(`  ${event.label}: ${event.done}`);
+  },
+  previous,
+);
 const slug = await saveAudit(audit);
 
 const { summary, channel } = audit;

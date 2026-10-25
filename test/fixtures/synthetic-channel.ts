@@ -90,10 +90,39 @@ export class SyntheticClient implements SearchClient {
     return this.respond(params) as T;
   }
 
-  private respond(params: Params): unknown {
+  private videosPage(params: Params, page: number) {
     const pageSize = 30;
+    const slice = this.videos.slice(page * pageSize, (page + 1) * pageSize);
+    const more = (page + 1) * pageSize < this.videos.length;
+    // Like SerpApi, the next link repeats the request's own parameters plus the token.
+    const next = new URL("https://serpapi.com/search.json");
+    for (const [k, v] of Object.entries(params)) if (k !== "next_page_token" && v !== undefined) next.searchParams.set(k, String(v));
+    next.searchParams.set("next_page_token", String(page + 1));
+    return {
+      videos_results: slice.map((v, i) => ({
+        position: page * pageSize + i + 1,
+        title: v.title,
+        link: `https://www.youtube.com/watch?v=${v.id}`,
+        video_id: v.id,
+        views: `${v.views.toLocaleString("en-US")} views`,
+        extracted_views: v.views,
+        published_date: relativeLabel(v.ageDays),
+        length: `${Math.floor(v.lengthSec / 60)}:${String(v.lengthSec % 60).padStart(2, "0")}`,
+      })),
+      serpapi_pagination: more ? { next_page_token: String(page + 1), next: next.toString() } : {},
+    };
+  }
+
+  private respond(params: Params): unknown {
+    if (params.about && params.next_page_token) {
+      return { error: "`about` and `next_page_token` parameters can't be used together." };
+    }
+    if (params.engine === "youtube_channel" && params.next_page_token && !params.tab) {
+      return this.videosPage(params, Number(params.next_page_token));
+    }
     if (params.engine === "youtube_channel" && params.about) {
       return {
+        ...this.videosPage(params, 0),
         channel_results: {
           title: "Test Channel",
           handle: "@testchannel",
@@ -108,22 +137,7 @@ export class SyntheticClient implements SearchClient {
       };
     }
     if (params.engine === "youtube_channel" && params.tab === "videos") {
-      const page = params.next_page_token ? Number(params.next_page_token) : 0;
-      const slice = this.videos.slice(page * pageSize, (page + 1) * pageSize);
-      const more = (page + 1) * pageSize < this.videos.length;
-      return {
-        videos_results: slice.map((v, i) => ({
-          position: page * pageSize + i + 1,
-          title: v.title,
-          link: `https://www.youtube.com/watch?v=${v.id}`,
-          video_id: v.id,
-          views: `${v.views.toLocaleString("en-US")} views`,
-          extracted_views: v.views,
-          published_date: relativeLabel(v.ageDays),
-          length: `${Math.floor(v.lengthSec / 60)}:${String(v.lengthSec % 60).padStart(2, "0")}`,
-        })),
-        serpapi_pagination: more ? { next_page_token: String(page + 1) } : {},
-      };
+      return { error: "The pipeline should take page 1 from the about response." };
     }
     if (params.engine === "youtube_channel" && params.tab === "shorts") {
       return {
@@ -136,7 +150,7 @@ export class SyntheticClient implements SearchClient {
       };
     }
     if (params.engine === "youtube_channel" && params.tab === "streams") {
-      return { error: "YouTube hasn't returned any results for this query." };
+      return { search_information: { streams_results_state: "This channel doesn't have any streams" } };
     }
     if (params.engine === "youtube_video") {
       const v = this.videos.find((x) => x.id === params.v);

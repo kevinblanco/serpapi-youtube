@@ -1,7 +1,7 @@
 // Synthetic videos only: these check the math, they say nothing about any real channel.
 
 import { describe, expect, it } from "vitest";
-import { analyze, expectedViews, fitAgeModel } from "../lib/analyze";
+import { analyze, expectedViews, fitAgeModel, monthPrecisionHorizon } from "../lib/analyze";
 import { median, theilSen } from "../lib/stats";
 import { findThemes } from "../lib/themes";
 import type { ChannelInfo, Video } from "../lib/types";
@@ -103,6 +103,15 @@ describe("analyze", () => {
   });
 });
 
+describe("monthPrecisionHorizon", () => {
+  it("stops where the first year-level label could start", () => {
+    const recent = video("recent00000", "a", 200, 100);
+    const vague = video("vague000000", "b", 548, 100, { datePrecision: "relative", publishedLabel: "1 year ago" });
+    expect(monthPrecisionHorizon([recent, vague])).toBeCloseTo(365.25, 2);
+    expect(monthPrecisionHorizon([recent])).toBe(Infinity);
+  });
+});
+
 describe("themes", () => {
   it("prefers a bigram over the words inside it", () => {
     const videos = [
@@ -132,6 +141,24 @@ describe("themes", () => {
     const keys = findThemes(videos, { minCount: 3 }).map((t) => t.key);
     expect(keys).not.toContain("google");
     expect(keys).toContain("google maps trick");
+  });
+
+  it("keeps generic words out unless they're part of a phrase, and merges no-code spellings", () => {
+    const videos = [
+      { id: "1", title: "Bing search scraper, no code" },
+      { id: "2", title: "Bing search results (No-Code)" },
+      { id: "3", title: "Bing search in Excel, nocode" },
+    ];
+    const keys = findThemes(videos, { minCount: 3 }).map((t) => t.label);
+    expect(keys).toContain("Bing search");
+    expect(keys).toContain("No-code");
+    expect(keys).not.toContain("Search");
+    expect(findThemes([1, 2, 3].map((i) => ({ id: String(i), title: `Web search result ${i}` })), { minCount: 3 })).toEqual([]);
+  });
+
+  it("keeps a hashtag's own casing", () => {
+    const videos = [1, 2, 3].map((i) => ({ id: String(i), title: `Talk ${i} | #SerpApiPodcast` }));
+    expect(findThemes(videos, { minCount: 3 }).map((t) => t.label)).toContain("#SerpApiPodcast");
   });
 
   it("drops the channel's own name", () => {
