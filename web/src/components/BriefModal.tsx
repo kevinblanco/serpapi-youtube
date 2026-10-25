@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Audit, RemakeCandidate } from "../../../lib/types";
 import { draftBrief } from "../../../lib/brief";
 import type { Opening } from "../api";
+import { isSnapshot } from "../snapshot";
 
 interface Props {
   audit: Audit;
@@ -12,7 +13,8 @@ interface Props {
 
 export function BriefModal({ audit, candidate, opening, onClose }: Props) {
   const markdown = useMemo(() => draftBrief(audit, candidate, opening), [audit, candidate, opening]);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
+  const [raw, setRaw] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -29,10 +31,16 @@ export function BriefModal({ audit, candidate, opening, onClose }: Props) {
     URL.revokeObjectURL(a.href);
   };
 
+  // Some embedded views refuse the clipboard; then show the raw Markdown to select by hand.
   const copy = async () => {
-    await navigator.clipboard.writeText(markdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setCopied("copied");
+      setTimeout(() => setCopied("idle"), 1500);
+    } catch {
+      setCopied("failed");
+      setRaw(true);
+    }
   };
 
   return (
@@ -43,19 +51,35 @@ export function BriefModal({ audit, candidate, opening, onClose }: Props) {
           <span className="eyebrow">Brief draft</span>
           <div className="row">
             {!opening && <span className="faint" style={{ fontSize: "0.82rem" }}>Load the transcript in the video panel to include the original opening.</span>}
+            <button className="button small secondary" onClick={() => setRaw((r) => !r)} aria-pressed={raw}>
+              {raw ? "Preview" : "Markdown"}
+            </button>
             <button className="button small secondary" onClick={copy}>
-              {copied ? "Copied" : "Copy Markdown"}
+              {copied === "copied" ? "Copied" : copied === "failed" ? "Copy blocked, select below" : "Copy Markdown"}
             </button>
-            <button className="button small" onClick={download}>
-              Download .md
-            </button>
+            {!isSnapshot && (
+              <button className="button small" onClick={download}>
+                Download .md
+              </button>
+            )}
             <button className="close" onClick={onClose} aria-label="Close">
               ×
             </button>
           </div>
         </div>
         <div className="modal-body">
-          <Markdown source={markdown} />
+          {raw ? (
+            <textarea
+              id="brief-markdown"
+              className="mono"
+              readOnly
+              value={markdown}
+              onFocus={(e) => e.currentTarget.select()}
+              style={{ width: "100%", minHeight: "60vh", background: "var(--ink-800)", color: "var(--text-body)", border: "1px solid var(--hairline)", borderRadius: 12, padding: "1rem" }}
+            />
+          ) : (
+            <Markdown source={markdown} />
+          )}
         </div>
       </div>
     </>

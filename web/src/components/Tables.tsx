@@ -3,6 +3,7 @@ import type { GroupStat, ScoredVideo, TitleFeatureStat } from "../../../lib/type
 import { formatAge, formatCount, formatDuration, formatMultiple } from "../../../lib/format";
 import { PerfDot } from "../charts/PerfDot";
 import { PERF_COLOR, performanceClass } from "../charts/scales";
+import { imageFor } from "../snapshot";
 
 // A transparent pixel, so a thumbnail that fails to load leaves its tinted box instead of a broken-image icon.
 export const BLANK_IMAGE = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
@@ -11,7 +12,7 @@ export function Thumb({ video, small }: { video: ScoredVideo; small?: boolean })
   return (
     <img
       className={small ? "thumb small" : "thumb"}
-      src={video.thumbnail ?? `https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`}
+      src={imageFor(video.id, video.thumbnail ?? `https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`) ?? BLANK_IMAGE}
       alt=""
       loading="lazy"
       onError={(e) => {

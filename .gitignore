@@ -1,14 +1,19 @@
 node_modules/
 dist/
+dist-snapshot/
 
 # Secrets. Only the example file is committed.
 .env
 .env.*
 !.env.example
 
-# SerpApi responses and audit snapshots stay on your machine.
+# SerpApi responses stay on your machine. The SerpApi audit is committed so
+# the dashboard opens on real data without spending searches.
 data/*
 !data/.gitkeep
+!data/audits/
+data/audits/*
+!data/audits/serpapi.json
 
 .DS_Store
 *.log

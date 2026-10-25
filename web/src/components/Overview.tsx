@@ -1,15 +1,17 @@
 import type { Audit } from "../../../lib/types";
 import { formatCount, formatFull } from "../../../lib/format";
+import { imageFor } from "../snapshot";
 
 export function ChannelHeader({ audit }: { audit: Audit }) {
   const { channel } = audit;
   const snapshot = new Date(audit.createdAt);
+  const avatar = imageFor("channel", channel.thumbnail);
   return (
     <div className="spread" style={{ alignItems: "end", gap: "2rem" }}>
       <div className="row" style={{ gap: "1.25rem", flexWrap: "nowrap" }}>
-        {channel.thumbnail && (
+        {avatar && (
           <img
-            src={channel.thumbnail}
+            src={avatar}
             alt=""
             width={72}
             height={72}

@@ -3,6 +3,7 @@ import type { Audit } from "../../../lib/types";
 import { formatAge, formatDuration, formatFull, formatMultiple } from "../../../lib/format";
 import { api, type Opening } from "../api";
 import { BLANK_IMAGE, PerfChip } from "./Tables";
+import { imageFor, isSnapshot } from "../snapshot";
 
 interface Props {
   audit: Audit;
@@ -51,7 +52,7 @@ export function VideoPanel({ audit, videoId, opening, onOpening, onClose }: Prop
           </button>
         </div>
         <img
-          src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`}
+          src={imageFor(video.id, `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`) ?? BLANK_IMAGE}
           onError={(e) => {
             if (e.currentTarget.src !== BLANK_IMAGE) e.currentTarget.src = BLANK_IMAGE;
           }}
@@ -112,7 +113,7 @@ export function VideoPanel({ audit, videoId, opening, onOpening, onClose }: Prop
         <div className="stack" style={{ gap: "0.75rem" }}>
           <div className="spread">
             <h3>The first minute</h3>
-            {!opening && (
+            {!opening && !isSnapshot && (
               <button className="button small secondary" onClick={loadOpening} disabled={loading}>
                 {loading ? "Loading…" : "Load transcript (1 search)"}
               </button>
@@ -136,7 +137,12 @@ export function VideoPanel({ audit, videoId, opening, onOpening, onClose }: Prop
               </div>
             </>
           )}
-          {!opening && !error && (
+          {!opening && isSnapshot && (
+            <p className="faint" style={{ fontSize: "0.85rem" }}>
+              This video's transcript wasn't loaded when the snapshot was taken.
+            </p>
+          )}
+          {!opening && !error && !isSnapshot && (
             <p className="faint" style={{ fontSize: "0.85rem" }}>
               Compare the opening of a strong video with a weak one: it shows quickly how each sets up its promise.
             </p>

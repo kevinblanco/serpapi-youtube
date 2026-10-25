@@ -3,6 +3,7 @@ import type { Audit, RemakeCandidate } from "../../../lib/types";
 import { formatCount } from "../../../lib/format";
 import { api, slugFor } from "../api";
 import { PerfChip, Thumb } from "./Tables";
+import { isSnapshot } from "../snapshot";
 
 interface Props {
   audit: Audit;
@@ -97,10 +98,13 @@ function CandidateCard({
           style={{ flex: "1 1 260px" }}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          readOnly={isSnapshot}
         />
-        <button className="button small secondary" onClick={check} disabled={busy || !query.trim()}>
-          {busy ? "Searching…" : demand && demand.query === query ? "Search again (1 search)" : "Search YouTube (1 search)"}
-        </button>
+        {!isSnapshot && (
+          <button className="button small secondary" onClick={check} disabled={busy || !query.trim()}>
+            {busy ? "Searching…" : demand && demand.query === query ? "Search again (1 search)" : "Search YouTube (1 search)"}
+          </button>
+        )}
         <button className="button small" onClick={() => onBrief(candidate)}>
           Draft brief <span className="arrow">→</span>
         </button>

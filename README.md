@@ -19,7 +19,7 @@ cp .env.example .env        # paste your key from serpapi.com/manage-api-key
 npm run dev                 # API on :8787, dashboard on http://localhost:5173
 ```
 
-Type a handle (`serpapi`), a `UC…` channel id or a channel URL, pick how many searches to spend, and run. Progress streams into the page as it goes.
+The dashboard opens on the committed audit of `@serpapi` from October 25, 2026 (`data/audits/serpapi.json`), so you can look around without spending a search. To run a new one, type a handle (`serpapi`), a `UC…` channel id or a channel URL, pick how many searches to spend, and run. Progress streams into the page as it goes.
 
 The same pipeline runs from the terminal:
 
@@ -31,6 +31,14 @@ npm run audit -- serpapi --estimate     # print the search cost and stop
 `npm run build && npm start` serves the built dashboard and the API together on :8787.
 
 Behind a proxy? Node 22 ignores `HTTPS_PROXY` unless you also set `NODE_USE_ENV_PROXY=1`.
+
+To share the dashboard without the local server, build a read-only snapshot:
+
+```bash
+npm run snapshot -- serpapi dist/snapshot.html
+```
+
+That writes one self-contained HTML file with the saved audit, any transcripts already fetched, and the thumbnails embedded, so it spends no searches and loads nothing from YouTube. The buttons that call SerpApi are hidden in it.
 
 ## Where SerpApi comes in
 
@@ -86,9 +94,10 @@ Both showed up on the first real run against `@serpapi` (October 2026), and the 
 lib/       analysis shared by server and dashboard: parsing, the age model, topics, candidates, brief
 server/    SerpApi client with cache and redaction, the audit pipeline, the local API (Hono)
 cli/       the terminal version of "Run audit"
+scripts/   the read-only snapshot build
 web/       the dashboard (React, Vite, hand-drawn SVG charts)
 test/      unit tests, plus a full pipeline run against a synthetic channel stub
-data/      cached responses and saved audits, local only
+data/      cached responses (local only) and saved audits (the SerpApi one is committed)
 ```
 
 ## Tests

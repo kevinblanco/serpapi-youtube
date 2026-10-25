@@ -10,6 +10,7 @@ import { VideoPanel } from "./components/VideoPanel";
 import { BriefModal } from "./components/BriefModal";
 import { ScatterChart } from "./charts/ScatterChart";
 import { MonthColumns } from "./charts/MonthColumns";
+import { snapshot } from "./snapshot";
 
 export function App() {
   const [saved, setSaved] = useState<SavedAudit[]>([]);
@@ -18,7 +19,7 @@ export function App() {
   const [hasKey, setHasKey] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [briefFor, setBriefFor] = useState<RemakeCandidate | null>(null);
-  const [openings, setOpenings] = useState<Record<string, Opening>>({});
+  const [openings, setOpenings] = useState<Record<string, Opening>>(snapshot?.openings ?? {});
 
   useEffect(() => {
     api.health().then((h) => setHasKey(h.hasKey)).catch(() => setLoadError("The API server isn't running. Start it with npm run dev."));
@@ -281,7 +282,21 @@ export function App() {
       )}
 
       <section className="section" style={{ marginTop: audit ? "4.5rem" : 0 }}>
-        <RunPanel key={audit?.createdAt ?? "new"} current={audit} onDone={onDone} />
+        {snapshot ? (
+          <div className="card card-hero stack" style={{ gap: "0.6rem" }}>
+            <span className="eyebrow">Read-only snapshot</span>
+            <p className="muted">
+              Running an audit, loading a transcript and searching a topic all call SerpApi, so they work in the local app.
+              The code and setup steps are on{" "}
+              <a href={snapshot.repoUrl} target="_blank" rel="noreferrer">
+                GitHub
+              </a>
+              .
+            </p>
+          </div>
+        ) : (
+          <RunPanel key={audit?.createdAt ?? "new"} current={audit} onDone={onDone} />
+        )}
       </section>
 
       <footer className="faint" style={{ marginTop: "4rem", fontSize: "0.8rem" }}>

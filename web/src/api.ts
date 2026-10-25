@@ -1,5 +1,6 @@
 import type { Audit, AuditOptions, ProgressEvent, RemakeCandidate } from "../../lib/types";
 import type { AccountResponse } from "../../lib/serpapi-types";
+import { snapshot } from "./snapshot";
 
 export interface Opening {
   videoId: string;
@@ -22,7 +23,7 @@ async function json<T>(res: Response): Promise<T> {
   return body;
 }
 
-export const api = {
+const live = {
   health: () => fetch("/api/health").then((r) => json<{ ok: boolean; hasKey: boolean }>(r)),
   account: () => fetch("/api/account").then((r) => json<AccountResponse>(r)),
   audits: () => fetch("/api/audits").then((r) => json<SavedAudit[]>(r)),
@@ -55,6 +56,23 @@ export const api = {
     }
   },
 };
+
+const READ_ONLY = "This is a read-only snapshot. Run the dashboard locally to call SerpApi.";
+
+/** In a snapshot build, reads come from the embedded data and anything live is refused. */
+const offline: typeof live = {
+  health: async () => ({ ok: true, hasKey: true }),
+  account: async () => Promise.reject(new Error(READ_ONLY)),
+  audits: async () => [
+    { slug: slugFor(snapshot!.audit), title: snapshot!.audit.channel.title, createdAt: snapshot!.audit.createdAt, videos: snapshot!.audit.videos.length },
+  ],
+  audit: async () => snapshot!.audit,
+  opening: async (videoId) => snapshot!.openings[videoId] ?? Promise.reject(new Error(READ_ONLY)),
+  demand: async () => Promise.reject(new Error(READ_ONLY)),
+  run: async () => Promise.reject(new Error(READ_ONLY)),
+};
+
+export const api = snapshot ? offline : live;
 
 export function slugFor(audit: Audit): string {
   return (audit.channel.handle ?? audit.channel.query).toLowerCase().replace(/^@/, "").replace(/[^a-z0-9_-]+/g, "-");
