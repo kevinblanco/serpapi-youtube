@@ -1,0 +1,6 @@
+# Publishes the read-only snapshot: the saved audit, built into one static
+# page. It needs no SerpApi key and makes no searches, so the URL is safe to
+# share. The live dashboard spends your searches, so keep it on localhost.
+[build]
+  command = "npm run build:site"
+  publish = "site"

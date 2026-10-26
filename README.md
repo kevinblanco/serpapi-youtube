@@ -117,11 +117,19 @@ Both showed up on the first real run against `@serpapi` (October 2026), and the 
 
 ## Share a read-only copy
 
+The live dashboard spends your searches, so keep it on your machine. To share an audit, build a read-only snapshot instead: one self-contained page with the saved audit (named as in `data/audits/`), any transcripts already fetched, and the thumbnails embedded. It needs no key, spends no searches, and hides the buttons that call SerpApi.
+
 ```bash
-npm run snapshot -- yourchannel dist/snapshot.html
+npm run snapshot -- yourchannel site/index.html --standalone
 ```
 
-That writes one self-contained HTML file with a saved audit (named as in `data/audits/`), any transcripts already fetched, and the thumbnails embedded. It spends no searches, needs no server, and hides the buttons that call SerpApi.
+Put `site/` on any static host. The repo is set up for [Netlify](https://www.netlify.com): `netlify.toml` builds the sample audit with `npm run build:site` and publishes `site/`, so with the [Netlify CLI](https://docs.netlify.com/cli/get-started/) installed and logged in, this deploys it:
+
+```bash
+netlify deploy --build --prod
+```
+
+Change the channel in the `build:site` script in `package.json` to publish a different audit. Without `--standalone`, the snapshot is written as a fragment for embedding in another page.
 
 ## Troubleshooting
 

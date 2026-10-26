@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-snapshot/
+site/
+.netlify/
 
 # Secrets. Only the example file is committed.
 .env

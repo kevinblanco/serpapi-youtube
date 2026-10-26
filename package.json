@@ -20,6 +20,7 @@
     "start": "vite build && tsx server/index.ts --dashboard",
     "audit": "tsx cli/audit.ts",
     "snapshot": "tsx scripts/snapshot.ts",
+    "build:site": "tsx scripts/snapshot.ts serpapi site/index.html --standalone",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
