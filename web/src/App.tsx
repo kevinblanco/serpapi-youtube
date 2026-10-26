@@ -95,6 +95,12 @@ export function App() {
         </p>
       )}
 
+      {!snapshot && audit && (
+        <section style={{ marginTop: "1.5rem" }}>
+          <RunPanel key={audit.createdAt} current={audit} hasKey={hasKey} onDone={onDone} />
+        </section>
+      )}
+
       {audit ? (
         <>
           <section className="section" style={{ marginTop: "3rem" }}>
@@ -278,11 +284,12 @@ export function App() {
               and shortlists the weak videos worth remaking.
             </p>
           </div>
+          {!snapshot && <RunPanel key="new" current={null} hasKey={hasKey} onDone={onDone} />}
         </section>
       )}
 
-      <section className="section" style={{ marginTop: audit ? "4.5rem" : 0 }}>
-        {snapshot ? (
+      {snapshot && (
+        <section className="section" style={{ marginTop: "4.5rem" }}>
           <div className="card card-hero stack" style={{ gap: "0.6rem" }}>
             <span className="eyebrow">Read-only snapshot</span>
             <p className="muted">
@@ -294,10 +301,8 @@ export function App() {
               .
             </p>
           </div>
-        ) : (
-          <RunPanel key={audit?.createdAt ?? "new"} current={audit} onDone={onDone} />
-        )}
-      </section>
+        </section>
+      )}
 
       <footer className="faint" style={{ marginTop: "4rem", fontSize: "0.8rem" }}>
         Data from SerpApi's YouTube engines. Views at {audit ? new Date(audit.createdAt).toLocaleString("en-US") : "snapshot time"};{" "}

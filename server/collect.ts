@@ -199,16 +199,17 @@ async function enrichMany(
 /**
  * Runs a full audit. Pass the channel's previous audit to keep the topic
  * queries someone edited in the dashboard; their results are usually cached.
+ * Every age is measured from `snapshot`.
  */
 export async function runAudit(
   input: Partial<AuditOptions>,
   client: SearchClient,
   emit: Emit,
   previous: Audit | null = null,
+  snapshot = new Date(),
 ): Promise<Audit> {
   const options: AuditOptions = { ...DEFAULT_OPTIONS, ...input };
   const remembered = new Map(previous?.candidates.filter((c) => c.demand).map((c) => [c.videoId, c.query]) ?? []);
-  const snapshot = new Date();
   const notes: string[] = [];
 
   emit({ type: "step", message: `Reading channel ${normalizeChannel(options.channel)}` });

@@ -1,6 +1,7 @@
 import type { Audit } from "../../../lib/types";
 import { formatCount, formatFull } from "../../../lib/format";
 import { imageFor } from "../snapshot";
+import { BLANK_IMAGE } from "./Tables";
 
 export function ChannelHeader({ audit }: { audit: Audit }) {
   const { channel } = audit;
@@ -16,6 +17,9 @@ export function ChannelHeader({ audit }: { audit: Audit }) {
             width={72}
             height={72}
             style={{ borderRadius: "50%", background: "var(--ink-700)", flex: "none" }}
+            onError={(e) => {
+              if (e.currentTarget.src !== BLANK_IMAGE) e.currentTarget.src = BLANK_IMAGE;
+            }}
           />
         )}
         <div className="stack" style={{ gap: "0.6rem" }}>

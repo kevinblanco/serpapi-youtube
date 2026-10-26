@@ -3,7 +3,7 @@
 // SerpApi omits keys it can't fill. Field names follow SerpApi's docs:
 //   youtube_channel          https://serpapi.com/youtube-channel-api
 //   youtube_video            https://serpapi.com/youtube-video-api
-//   youtube_video_transcript https://serpapi.com/youtube-video-transcript-api
+//   youtube_video_transcript https://serpapi.com/youtube-video-transcript
 //   youtube (search)         https://serpapi.com/youtube-search-api
 
 export interface SearchMetadata {

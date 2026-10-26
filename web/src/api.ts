@@ -28,7 +28,10 @@ const live = {
   account: () => fetch("/api/account").then((r) => json<AccountResponse>(r)),
   audits: () => fetch("/api/audits").then((r) => json<SavedAudit[]>(r)),
   audit: (slug: string) => fetch(`/api/audits/${encodeURIComponent(slug)}`).then((r) => json<Audit>(r)),
-  opening: (videoId: string) => fetch(`/api/videos/${videoId}/opening`).then((r) => json<Opening>(r)),
+  opening: (videoId: string) =>
+    fetch(`/api/videos/${encodeURIComponent(videoId)}/opening`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then(
+      (r) => json<Opening>(r),
+    ),
   demand: (slug: string, videoId: string, query: string) =>
     fetch(`/api/audits/${encodeURIComponent(slug)}/demand`, {
       method: "POST",

@@ -1,6 +1,6 @@
-// Drafts a remake brief in the same shape as a DevReel video plan. Everything
-// the data can answer is filled in; everything that needs a human (ICP, script,
-// visuals) stays as a visible [TO WRITE] placeholder.
+// Drafts a remake brief: audience, ICP, goals and metrics, chapters, script
+// and visual brief. Everything the data can answer is filled in; everything
+// that needs a person (ICP, script, visuals) stays as a visible [TO WRITE].
 
 import type { Audit, RemakeCandidate } from "./types";
 import { formatAge, formatDuration, formatFull, formatMultiple } from "./format";
@@ -29,7 +29,7 @@ export function draftBrief(audit: Audit, candidate: RemakeCandidate, opening?: O
   push(
     `# Remake brief: ${video.title}`,
     "",
-    `Prepared by Kevin Blanco. Data from a SerpApi audit of ${channel.title} (${channel.handle ?? channel.query}) taken ${snapshot}.`,
+    `Drafted from an audit of ${channel.title} (${channel.handle ?? channel.query}) taken ${snapshot} with SerpApi's YouTube engines.`,
     "",
     "## Why this video",
     "",
@@ -73,15 +73,15 @@ export function draftBrief(audit: Audit, candidate: RemakeCandidate, opening?: O
     "| | |",
     "|---|---|",
     "| Runtime | [TO WRITE] |",
-    "| Format | 3840 × 2160, 16:9, 60 fps |",
-    `| Target question | [TO WRITE: the question a developer types${demand ? `, starting from "${cell(demand.query)}"` : ""}] |`,
+    "| Format | [TO WRITE: resolution, aspect ratio, frame rate] |",
+    `| Target question | [TO WRITE: the question a viewer types${demand ? `, starting from "${cell(demand.query)}"` : ""}] |`,
     "| Audience | [TO WRITE] |",
-    "| Demo app | [TO WRITE] |",
+    "| Demo or example | [TO WRITE] |",
     "| Primary CTA | [TO WRITE] |",
     "",
     "## ICP",
     "",
-    "[TO WRITE: one named person. Role, stack, the job they're trying to finish, where they search, what they tried before finding this video.]",
+    "[TO WRITE: one named person. Role, the job they're trying to finish, where they search, what they tried before finding this video.]",
     "",
     "## Goals and metrics",
     "",
@@ -92,13 +92,13 @@ export function draftBrief(audit: Audit, candidate: RemakeCandidate, opening?: O
     `| Rank for "${cell(demand?.query ?? candidate.query)}" | ${demand ? (demand.ownRank ? `#${demand.ownRank}` : "not ranked") : "not checked"} | Top 3 | SerpApi youtube engine, re-run weekly |`,
     `| Likes per 1,000 views | ${per1k(video.likes, video.views)} | [N] | SerpApi youtube_video engine |`,
     "| Average percentage viewed | [N] from the original | [N] | YouTube Studio |",
-    "| Clicks to serpapi.com | [N] | [N] | UTM link in the description |",
+    "| Clicks to your site | [N] | [N] | UTM link in the description |",
     "",
     "## Chapter list",
     "",
-    "| # | Chapter | In–Out | Dur | Mode | Paced by |",
-    "|---|---|---|---|---|---|",
-    "| 1 | [TO WRITE] | | | | |",
+    "| # | Chapter | In–Out | Duration | On screen |",
+    "|---|---|---|---|---|",
+    "| 1 | [TO WRITE] | | | |",
     "",
     "## Script",
     "",
@@ -112,7 +112,7 @@ export function draftBrief(audit: Audit, candidate: RemakeCandidate, opening?: O
     "",
     `- Original video: ${video.link}`,
     ...competitors.map((c) => `- Competing video: [${c.title}](${c.link}) by ${c.channel}, ${formatFull(c.views)} views`),
-    "- SerpApi docs for the engines shown: [TO WRITE]",
+    "- Links for the description: [TO WRITE]",
     "",
   );
   return lines.join("\n");

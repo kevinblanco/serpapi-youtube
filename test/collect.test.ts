@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runAudit } from "../server/collect";
 import { fetchOpening, recheckDemand } from "../server/deep-dive";
-import { DEFAULT_OPTIONS, estimateSearches, normalizeChannel } from "../lib/options";
+import { DEFAULT_OPTIONS, channelInputError, estimateSearches, normalizeChannel } from "../lib/options";
 import { draftBrief } from "../lib/brief";
 import type { ProgressEvent } from "../lib/types";
 import { SyntheticClient } from "./fixtures/synthetic-channel";
@@ -13,16 +13,40 @@ describe("normalizeChannel", () => {
     [" https://www.youtube.com/@serpapi/videos ", "serpapi"],
     ["https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv", "UCabcdefghijklmnopqrstuv"],
     ["UCabcdefghijklmnopqrstuv", "UCabcdefghijklmnopqrstuv"],
+    ["https://www.youtube.com/@serpapi?si=abc", "serpapi"],
+    ["https://www.youtube.com/@%E3%83%86%E3%82%B9%E3%83%88", "テスト"],
   ])("%s -> %s", (input, expected) => {
     expect(normalizeChannel(input)).toBe(expected);
   });
 });
 
+describe("channelInputError", () => {
+  it.each(["serpapi", "@serpapi", "@some.channel-name_1", "テスト", "https://www.youtube.com/@serpapi/videos", "UCabcdefghijklmnopqrstuv"])(
+    "accepts %s",
+    (input) => expect(channelInputError(input)).toBeNull(),
+  );
+
+  it.each([
+    ["", /Enter a channel/],
+    ["https://www.youtube.com/watch?v=dQw4w9WgXcQ", /link to a video/],
+    ["https://youtu.be/dQw4w9WgXcQ", /link to a video/],
+    ["https://www.youtube.com/shorts/dQw4w9WgXcQ", /link to a video/],
+    ["https://www.youtube.com/c/SerpApi", /\/c\/ and \/user\//],
+    ["https://www.youtube.com/user/someone", /\/c\/ and \/user\//],
+    ["ab", /doesn't look like/],
+    ["two words", /doesn't look like/],
+    ["serpapi&tab=videos", /doesn't look like/],
+  ])("rejects %j", (input, message) => {
+    expect(channelInputError(input)).toMatch(message);
+  });
+});
+
 describe("runAudit on a synthetic channel", async () => {
-  const now = new Date("2026-10-25T12:00:00Z");
+  // Midnight UTC, so a date-only publish label and the snapshot are whole days apart.
+  const now = new Date("2026-10-25T00:00:00Z");
   const client = new SyntheticClient(now);
   const events: ProgressEvent[] = [];
-  const audit = await runAudit({ channel: "testchannel", enrich: 30, demandChecks: 3 }, client, (e) => events.push(e));
+  const audit = await runAudit({ channel: "testchannel", enrich: 30, demandChecks: 3 }, client, (e) => events.push(e), null, now);
 
   it("sends the handle without its @", () => {
     expect(client.calls[0]).toMatchObject({ engine: "youtube_channel", channel_id: "testchannel", about: true });
@@ -91,7 +115,7 @@ describe("runAudit on a synthetic channel", async () => {
   it("keeps a query edited in the previous audit", async () => {
     const target = audit.candidates.at(-1)!;
     const { audit: edited } = await recheckDemand(client, audit, target.videoId, "my edited query");
-    const rerun = await runAudit({ channel: "testchannel", enrich: 30, demandChecks: 3 }, new SyntheticClient(now), () => {}, edited);
+    const rerun = await runAudit({ channel: "testchannel", enrich: 30, demandChecks: 3 }, new SyntheticClient(now), () => {}, edited, now);
     expect(rerun.candidates.find((c) => c.videoId === target.videoId)?.demand?.query).toBe("my edited query");
   });
 
@@ -104,7 +128,8 @@ describe("runAudit on a synthetic channel", async () => {
   it("drafts a brief with data filled in and placeholders left visible", () => {
     const brief = draftBrief(audit, audit.candidates[0]!);
     expect(brief).toMatch(/^# Remake brief: /);
-    expect(brief).toContain("| Format | 3840 × 2160, 16:9, 60 fps |");
+    expect(brief).toContain("| Format | [TO WRITE: resolution, aspect ratio, frame rate] |");
+    expect(brief).toContain("Drafted from an audit of Test Channel");
     expect(brief).toContain("[TO WRITE]");
     expect(brief).toContain("Median views, top");
   });

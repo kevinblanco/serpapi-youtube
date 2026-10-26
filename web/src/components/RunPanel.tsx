@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import type { Audit, AuditOptions, ProgressEvent, VideoFormat } from "../../../lib/types";
 import type { AccountResponse } from "../../../lib/serpapi-types";
-import { DEFAULT_OPTIONS, estimateSearches, normalizeChannel } from "../../../lib/options";
+import { DEFAULT_OPTIONS, channelInputError, estimateSearches, normalizeChannel } from "../../../lib/options";
 import { api } from "../api";
 
 interface Props {
   current: Audit | null;
+  hasKey: boolean;
   onDone: (audit: Audit) => void;
 }
 
@@ -15,7 +16,9 @@ const TABS: { key: VideoFormat; label: string }[] = [
   { key: "stream", label: "Live" },
 ];
 
-export function RunPanel({ current, onDone }: Props) {
+export function RunPanel({ current, hasKey, onDone }: Props) {
+  // Folded away while an audit is on screen; open when there's nothing to show yet.
+  const [open, setOpen] = useState(!current);
   const [options, setOptions] = useState<AuditOptions>({ ...DEFAULT_OPTIONS, ...(current ? { channel: current.options.channel } : {}) });
   const [account, setAccount] = useState<AccountResponse | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -39,6 +42,9 @@ export function RunPanel({ current, onDone }: Props) {
   const set = <K extends keyof AuditOptions>(key: K, value: AuditOptions[K]) => setOptions((o) => ({ ...o, [key]: value }));
   const sameChannel = current && current.options.channel.toLowerCase() === normalizeChannel(options.channel).toLowerCase();
   const estimate = estimateSearches(options, sameChannel ? current.channel.videoCount : null);
+  const channelProblem = options.channel.trim() ? channelInputError(options.channel) : null;
+  const left = account?.total_searches_left;
+  const overBudget = left !== undefined && estimate > left;
 
   const run = async () => {
     setRunning(true);
@@ -62,6 +68,19 @@ export function RunPanel({ current, onDone }: Props) {
       loadAccount();
     }
   };
+
+  if (!open) {
+    return (
+      <div className="card spread" style={{ padding: "1rem 1.5rem" }}>
+        <span className="muted" style={{ fontSize: "0.92rem" }}>
+          Showing {current?.channel.title ?? "a saved audit"}. Audit your own channel, or any other, with your SerpApi key.
+        </span>
+        <button className="button small" onClick={() => setOpen(true)}>
+          Audit a channel <span className="arrow">→</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="card card-hero stack" style={{ gap: "1.25rem" }}>
@@ -94,13 +113,25 @@ export function RunPanel({ current, onDone }: Props) {
           style={{ flex: "1 1 260px" }}
           value={options.channel}
           onChange={(e) => set("channel", e.target.value)}
-          placeholder="serpapi, a UC… channel id, or a channel URL"
+          placeholder="@yourchannel, a UC… channel id, or the channel's URL"
+          aria-invalid={channelProblem !== null}
+          aria-describedby={channelProblem ? "channel-problem" : undefined}
           disabled={running}
         />
-        <button className="button" onClick={run} disabled={running || !options.channel.trim()}>
+        <button className="button" onClick={run} disabled={running || !hasKey || !options.channel.trim() || channelProblem !== null}>
           {running ? "Running…" : "Run audit"} <span className="arrow">→</span>
         </button>
+        {current && !running && (
+          <button className="button secondary" onClick={() => setOpen(false)}>
+            Close
+          </button>
+        )}
       </div>
+      {channelProblem && (
+        <p id="channel-problem" style={{ color: "var(--perf-under)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
+          {channelProblem}
+        </p>
+      )}
 
       <div className="row" style={{ gap: "1.25rem", fontSize: "0.88rem" }}>
         <label className="row" style={{ gap: "0.5rem" }}>
@@ -151,8 +182,19 @@ export function RunPanel({ current, onDone }: Props) {
       <p className="faint" style={{ fontSize: "0.85rem" }}>
         About <span className="num">{estimate}</span> searches
         {options.refresh ? "" : ", fewer when responses are already in the local cache"}. Video lookups add exact dates,
-        likes, comments and chapters; topic searches check how other videos do on each weak video's subject.
+        likes and chapters; topic searches check how other videos do on each weak video's subject.
       </p>
+      {overBudget && (
+        <p style={{ color: "var(--perf-under)", fontSize: "0.85rem", marginTop: "-0.5rem" }}>
+          That's more than the {left.toLocaleString("en-US")} searches you have left this month. Lower the video lookups or
+          topic searches, or untick Shorts and Live, unless most of this channel is already in the local cache.
+        </p>
+      )}
+      {!hasKey && (
+        <p className="faint" style={{ fontSize: "0.85rem", marginTop: "-0.5rem" }}>
+          Add SERPAPI_API_KEY to .env and restart the server to run audits.
+        </p>
+      )}
 
       {(log.length > 0 || error) && (
         <div className="log" aria-live="polite">
