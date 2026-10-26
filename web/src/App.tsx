@@ -111,25 +111,6 @@ export function App() {
             <StatTiles audit={audit} />
           </section>
 
-          <section className="section">
-            <div className="section-head">
-              <div>
-                <span className="eyebrow">Views against age</span>
-                <h2>
-                  What <span className="serif">performs</span>, adjusted for age
-                </h2>
-                <p>
-                  Older videos have had longer to collect views, so raw view counts flatter the back catalogue. The line is
-                  what this channel's videos usually have at each age; every dot is a video, colored by how far it lands
-                  from that line.
-                </p>
-              </div>
-            </div>
-            <div className="card">
-              <ScatterChart videos={audit.videos} model={audit.model} selectedId={selected} onSelect={setSelected} />
-            </div>
-          </section>
-
           <section className="section grid-2">
             <div className="card">
               <h3>Beat the curve</h3>
@@ -208,8 +189,8 @@ export function App() {
                   What to <span className="serif">remake</span>
                 </h2>
                 <p>
-                  Videos at least 60 days old that fell below the curve, ranked by how far below it they landed and, after a
-                  topic search, how many more views other videos get on the same subject.
+                  Videos at least 60 days old with fewer views than this channel usually gets at their age, ranked by how far short
+                  they fell and, after a topic search, how many more views other videos get on the same subject.
                 </p>
               </div>
             </div>
@@ -221,11 +202,30 @@ export function App() {
               <div>
                 <span className="eyebrow">Every video</span>
                 <h2>The full table</h2>
-                <p>Every value from the charts above, sortable. Click a row for details.</p>
+                <p>Every value behind the reports on this page, sortable. Click a row for details.</p>
               </div>
             </div>
             <div className="card">
               <VideosTable videos={audit.videos} onSelect={setSelected} />
+            </div>
+          </section>
+
+          <section className="section">
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">Views against age</span>
+                <h2>
+                  What <span className="serif">performs</span>, adjusted for age
+                </h2>
+                <p>
+                  Older videos have had longer to collect views, so raw view counts flatter the back catalogue. The line is
+                  what this channel's videos usually have at each age; every dot is a video, colored by how far it lands
+                  from that line.
+                </p>
+              </div>
+            </div>
+            <div className="card">
+              <ScatterChart videos={audit.videos} model={audit.model} selectedId={selected} onSelect={setSelected} />
             </div>
           </section>
 
