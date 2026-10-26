@@ -2,6 +2,8 @@
 
 Point it at any YouTube channel and it lists every upload through [SerpApi](https://serpapi.com)'s YouTube engines, scores each video against what that channel usually gets at the same age, and shortlists the weak videos worth remaking. It runs on your machine with your own SerpApi key.
 
+**See it on SerpApi's own channel:** [serpapi-audit.netlify.app](https://serpapi-audit.netlify.app), a read-only snapshot of the October 25, 2026 audit.
+
 ![The dashboard on a sample audit of SerpApi's channel](docs/dashboard.png)
 
 It answers four questions:
