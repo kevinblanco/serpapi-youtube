@@ -25,7 +25,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.5",
+    "@hono/node-server": "^2.1.6",
     "hono": "^4.13.13",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
